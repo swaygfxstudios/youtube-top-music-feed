@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 async function getVideos() {
   return [
     {
@@ -14,6 +16,9 @@ async function getVideos() {
     }
   ];
 }
+
+async function run() {
+  const videos = await getVideos();
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
