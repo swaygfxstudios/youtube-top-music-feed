@@ -21,7 +21,7 @@ async function fetchMusicVideos() {
 
 //
 // ─────────────────────────────
-// 2. MEMORY (previous chart snapshot)
+// 2. MEMORY (chart history)
 // ─────────────────────────────
 //
 function loadPrevious() {
@@ -39,7 +39,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. VIRAL VIDEO SCORE (video-first logic)
+// 3. VIDEO VIRAL SCORE
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -48,21 +48,20 @@ function calculateVideoScore(video) {
   const ageHours =
     (Date.now() - new Date(video.publishedAt).getTime()) / 36e5;
 
-  // freshness boost = early viral detection signal
   const freshnessBoost = Math.max(0, 72 - ageHours);
 
-  // video dominance score (views + early traction)
   return (views * 0.8) + (freshnessBoost * 40000);
 }
 
 //
 // ─────────────────────────────
-// 4. BUILD MUSIC VIDEO CHART
+// 4. BUILD CHART
 // ─────────────────────────────
 //
 function buildChart(items) {
   return items
     .map(v => ({
+      videoId: v.id,
       title: v.snippet.title,
       channel: v.snippet.channelTitle,
       thumbnail: v.snippet.thumbnails?.medium?.url,
@@ -79,19 +78,19 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + EARLY TREND SIGNALS
+// 5. MOVEMENT + SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
   const prevMap = new Map();
 
   previous.forEach((v, i) => {
-    prevMap.set(v.title, { rank: i + 1 });
+    prevMap.set(v.videoId, { rank: i + 1 });
   });
 
   return current.map((v, i) => {
     const rank = i + 1;
-    const prev = prevMap.get(v.title);
+    const prev = prevMap.get(v.videoId);
 
     let signal = "🆕 NEW ENTRY";
 
@@ -104,7 +103,6 @@ function applySignals(current, previous) {
       else signal = "➖ Stable";
     }
 
-    // early breakout detection (video-specific logic)
     if (rank <= 5 && !prev) {
       signal = "⚡ EARLY VIDEO TREND";
     }
@@ -119,12 +117,32 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. APPLE-STYLE DISCORD OUTPUT
+// 6. ARTIST DOMINANCE TRACKER
 // ─────────────────────────────
 //
-function buildEmbeds(chart) {
-  return chart.map(v => ({
+function getArtistDominance(chart) {
+  const map = new Map();
+
+  chart.forEach(v => {
+    const key = v.channel;
+
+    map.set(key, (map.get(key) || 0) + 1);
+  });
+
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([channel, count]) => `👤 ${channel} — ${count} in Top 10`);
+}
+
+//
+// ─────────────────────────────
+// 7. DISCORD EMBEDS (CLICKABLE + CLEAN)
+// ─────────────────────────────
+//
+function buildEmbeds(chart, dominance) {
+  const embeds = chart.map(v => ({
     title: `#${v.rank} ${v.title}`,
+    url: `https://www.youtube.com/watch?v=${v.videoId}`, // CLICKABLE
     image: { url: v.thumbnail },
     description:
       `${v.signal}\n` +
@@ -132,10 +150,18 @@ function buildEmbeds(chart) {
       `👤 ${v.channel}\n` +
       `👁️ ${v.views.toLocaleString()} views`
   }));
+
+  // Add dominance as a final “summary card”
+  embeds.push({
+    title: "🏆 Artist Dominance (This Run)",
+    description: dominance.join("\n")
+  });
+
+  return embeds;
 }
 
-async function sendToDiscord(chart) {
-  const embeds = buildEmbeds(chart);
+async function sendToDiscord(chart, dominance) {
+  const embeds = buildEmbeds(chart, dominance);
 
   await fetch(WEBHOOK, {
     method: "POST",
@@ -149,7 +175,7 @@ async function sendToDiscord(chart) {
 
 //
 // ─────────────────────────────
-// 7. MAIN PIPELINE
+// 8. MAIN PIPELINE
 // ─────────────────────────────
 //
 async function main() {
@@ -161,11 +187,13 @@ async function main() {
 
   const finalChart = applySignals(baseChart, previous);
 
-  await sendToDiscord(finalChart);
+  const dominance = getArtistDominance(finalChart);
+
+  await sendToDiscord(finalChart, dominance);
 
   saveCurrent(baseChart);
 
-  console.log("✅ Music Video Chart updated");
+  console.log("✅ Chart + dominance + clickable links updated");
 }
 
 main();
