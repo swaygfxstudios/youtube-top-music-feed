@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>YouTube Top Music Videos</title>
+    <link>https://www.youtube.com</link>
+    <description>Simple starter feed (manual version)</description>
+
+    <item>
+      <title>Example Song Title</title>
+      <link>https://www.youtube.com/watch?v=dQw4w9WgXcQ</link>
+      <guid>dQw4w9WgXcQ</guid>
+    </item>
+
+  </channel>
+</rss>
