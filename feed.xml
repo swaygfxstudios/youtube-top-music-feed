@@ -7,18 +7,18 @@
 
 <item>
 <title><![CDATA[Top Music Video 1]]></title>
-<link>https://www.youtube.com/watch?v=demo1</link>
-<guid>demo1</guid>
+<link>https://www.youtube.com/watch?v=video1</link>
+<guid>video1</guid>
 </item>
 <item>
 <title><![CDATA[Top Music Video 2]]></title>
-<link>https://www.youtube.com/watch?v=demo2</link>
-<guid>demo2</guid>
+<link>https://www.youtube.com/watch?v=video2</link>
+<guid>video2</guid>
 </item>
 <item>
 <title><![CDATA[Top Music Video 3]]></title>
-<link>https://www.youtube.com/watch?v=demo3</link>
-<guid>demo3</guid>
+<link>https://www.youtube.com/watch?v=video3</link>
+<guid>video3</guid>
 </item>
 </channel>
 </rss>
