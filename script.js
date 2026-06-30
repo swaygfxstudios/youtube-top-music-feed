@@ -1,20 +1,35 @@
 const fs = require("fs");
 
 async function getVideos() {
-  return [
-    {
-      title: "Top Music Video 1",
-      id: "video1"
-    },
-    {
-      title: "Top Music Video 2",
-      id: "video2"
-    },
-    {
-      title: "Top Music Video 3",
-      id: "video3"
-    }
-  ];
+  const res = await fetch("https://rsshub.app/youtube/charts/TopVideos/us");
+  const text = await res.text();
+
+  const videoRegex = /watch\?v=([a-zA-Z0-9_-]{11})/g;
+  const titleRegex = /<title><!\[CDATA\[(.*?)\]\]><\/title>/g;
+
+  let ids = [];
+  let titles = [];
+
+  let match;
+
+  while ((match = videoRegex.exec(text)) !== null) {
+    ids.push(match[1]);
+  }
+
+  while ((match = titleRegex.exec(text)) !== null) {
+    titles.push(match[1]);
+  }
+
+  const videos = [];
+
+  for (let i = 0; i < Math.min(10, ids.length); i++) {
+    videos.push({
+      title: titles[i] || "YouTube Music",
+      id: ids[i]
+    });
+  }
+
+  return videos;
 }
 
 async function run() {
