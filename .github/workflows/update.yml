@@ -1,25 +1,28 @@
-name: YouTube Music Chart Bot
+name: YouTube Music Video Chart
 
 on:
+  # Every Friday at 12:00 PM UTC
   schedule:
-    - cron: "0 */6 * * *"  # every 6 hours
+    - cron: "0 18 * * 5"
+
+  # Allow manual runs from the GitHub Actions page
   workflow_dispatch:
 
 jobs:
-  run-bot:
+  update-chart:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
 
-      - name: Run bot
-        run: node src/fetch.js
+      - name: Run Music Video Chart
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node src/fetch.js
