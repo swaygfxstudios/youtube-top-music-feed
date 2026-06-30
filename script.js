@@ -3,6 +3,7 @@ const fs = require("fs");
 async function getVideos() {
   const res = await fetch("https://rsshub.app/youtube/charts/TopVideos/us");
   const text = await res.text();
+  console.log(text);
 
   const videoRegex = /watch\?v=([a-zA-Z0-9_-]{11})/g;
   const titleRegex = /<title><!\[CDATA\[(.*?)\]\]><\/title>/g;
