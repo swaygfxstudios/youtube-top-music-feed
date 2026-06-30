@@ -5,6 +5,16 @@ const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
 //
 // ─────────────────────────────
+// 0. SYSTEM CHECK (pre-flight)
+// ─────────────────────────────
+//
+function validateEnv() {
+  if (!API_KEY) throw new Error("Missing YOUTUBE_API_KEY");
+  if (!WEBHOOK) throw new Error("Missing DISCORD_WEBHOOK_URL");
+}
+
+//
+// ─────────────────────────────
 // 1. FETCH YOUTUBE MUSIC VIDEOS
 // ─────────────────────────────
 //
@@ -14,8 +24,13 @@ async function fetchMusicVideos() {
     `&chart=mostPopular&videoCategoryId=10&regionCode=US&maxResults=20&key=${API_KEY}`;
 
   const res = await fetch(url);
-  const data = await res.json();
 
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`YouTube API failed: ${res.status} ${text}`);
+  }
+
+  const data = await res.json();
   return data.items || [];
 }
 
@@ -39,7 +54,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. VIDEO VIRAL SCORE
+// 3. VIRAL SCORE (video intelligence)
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -55,7 +70,7 @@ function calculateVideoScore(video) {
 
 //
 // ─────────────────────────────
-// 4. BUILD CHART
+// 4. BUILD CHART (Top 10 engine)
 // ─────────────────────────────
 //
 function buildChart(items) {
@@ -78,7 +93,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + SIGNALS
+// 5. MOVEMENT + SIGNALS (memory comparison)
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -98,102 +113,98 @@ function applySignals(current, previous) {
       const diff = prev.rank - rank;
 
       if (diff >= 2) signal = "📈 RISING";
-      else if (diff === 1) signal = "↗ Up";
+      else if (diff === 1) signal = "↗ UP";
       else if (diff <= -2) signal = "📉 FALLING";
-      else signal = "➖ Stable";
+      else signal = "➖ STABLE";
     }
 
     if (rank <= 5 && !prev) {
       signal = "⚡ EARLY VIDEO TREND";
     }
 
-    return {
-      ...v,
-      rank,
-      signal
-    };
+    return { ...v, rank, signal };
   });
 }
 
 //
 // ─────────────────────────────
-// 6. ARTIST DOMINANCE TRACKER
+// 6. DISCORD (HARDENED SEND WITH RETRIES)
 // ─────────────────────────────
 //
-function getArtistDominance(chart) {
-  const map = new Map();
+async function sendToDiscord(chart, attempt = 1) {
+  try {
+    const embeds = chart.map(v => ({
+      title: `#${v.rank} ${v.title}`,
+      url: `https://www.youtube.com/watch?v=${v.videoId}`,
+      image: { url: v.thumbnail },
+      description:
+        `${v.signal}\n` +
+        `🎬 Music Video Chart\n` +
+        `👤 ${v.channel}\n` +
+        `👁️ ${v.views.toLocaleString()} views`
+    }));
 
-  chart.forEach(v => {
-    const key = v.channel;
+    const res = await fetch(WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "🏆 YouTube Music Video Chart (US)",
+        embeds
+      })
+    });
 
-    map.set(key, (map.get(key) || 0) + 1);
-  });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Discord API error ${res.status}: ${text}`);
+    }
 
-  return [...map.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([channel, count]) => `👤 ${channel} — ${count} in Top 10`);
+    console.log("✅ Discord message sent");
+
+  } catch (err) {
+    console.log(`❌ Discord send failed (attempt ${attempt}):`, err.message);
+
+    // retry once (simple resilience)
+    if (attempt < 2) {
+      console.log("🔁 Retrying Discord send...");
+      await new Promise(r => setTimeout(r, 2000));
+      return sendToDiscord(chart, attempt + 1);
+    }
+
+    throw err;
+  }
 }
 
 //
 // ─────────────────────────────
-// 7. DISCORD EMBEDS (CLICKABLE + CLEAN)
-// ─────────────────────────────
-//
-function buildEmbeds(chart, dominance) {
-  const embeds = chart.map(v => ({
-    title: `#${v.rank} ${v.title}`,
-    url: `https://www.youtube.com/watch?v=${v.videoId}`, // CLICKABLE
-    image: { url: v.thumbnail },
-    description:
-      `${v.signal}\n` +
-      `🎬 Music Video Chart\n` +
-      `👤 ${v.channel}\n` +
-      `👁️ ${v.views.toLocaleString()} views`
-  }));
-
-  // Add dominance as a final “summary card”
-  embeds.push({
-    title: "🏆 Artist Dominance (This Run)",
-    description: dominance.join("\n")
-  });
-
-  return embeds;
-}
-
-async function sendToDiscord(chart, dominance) {
-  const embeds = buildEmbeds(chart, dominance);
-
-  await fetch(WEBHOOK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      content: "🏆 YouTube Music Video Chart (US)",
-      embeds
-    })
-  });
-}
-
-//
-// ─────────────────────────────
-// 8. MAIN PIPELINE
+// 7. MAIN PIPELINE (CONTROLLED EXECUTION)
 // ─────────────────────────────
 //
 async function main() {
-  const raw = await fetchMusicVideos();
+  try {
+    console.log("🚀 Starting chart engine...");
 
-  const baseChart = buildChart(raw);
+    validateEnv();
 
-  const previous = loadPrevious();
+    const raw = await fetchMusicVideos();
 
-  const finalChart = applySignals(baseChart, previous);
+    console.log(`📡 Fetched ${raw.length} videos`);
 
-  const dominance = getArtistDominance(finalChart);
+    const baseChart = buildChart(raw);
 
-  await sendToDiscord(finalChart, dominance);
+    const previous = loadPrevious();
 
-  saveCurrent(baseChart);
+    const finalChart = applySignals(baseChart, previous);
 
-  console.log("✅ Chart + dominance + clickable links updated");
+    await sendToDiscord(finalChart);
+
+    saveCurrent(baseChart);
+
+    console.log("✅ Chart cycle complete");
+
+  } catch (err) {
+    console.log("🔥 SYSTEM FAILURE:", err.message);
+    process.exit(1);
+  }
 }
 
 main();
