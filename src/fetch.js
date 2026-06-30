@@ -1,10 +1,14 @@
+const fs = require("fs");
+
 const API_KEY = process.env.YOUTUBE_API_KEY;
 const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
 //
-// 1. FETCH DATA
+// ─────────────────────────────
+// 1. FETCH YOUTUBE MUSIC VIDEOS
+// ─────────────────────────────
 //
-async function fetchMusic() {
+async function fetchMusicVideos() {
   const url =
     `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics` +
     `&chart=mostPopular&videoCategoryId=10&regionCode=US&maxResults=20&key=${API_KEY}`;
@@ -16,22 +20,45 @@ async function fetchMusic() {
 }
 
 //
-// 2. GENRE DETECTION (simple tagging system)
+// ─────────────────────────────
+// 2. MEMORY (previous chart snapshot)
+// ─────────────────────────────
 //
-function detectGenre(title) {
-  const t = title.toLowerCase();
+function loadPrevious() {
+  try {
+    return JSON.parse(fs.readFileSync("output/lastChart.json", "utf8"));
+  } catch {
+    return [];
+  }
+}
 
-  if (t.includes("drill")) return "Drill";
-  if (t.includes("afro") || t.includes("afrobeats")) return "Afrobeats";
-  if (t.includes("remix")) return "Remix";
-  if (t.includes("live")) return "Live";
-  if (t.includes("official")) return "Mainstream";
-
-  return "Music";
+function saveCurrent(chart) {
+  fs.mkdirSync("output", { recursive: true });
+  fs.writeFileSync("output/lastChart.json", JSON.stringify(chart, null, 2));
 }
 
 //
-// 3. TRANSFORM + RANKING (THIS is your chart engine)
+// ─────────────────────────────
+// 3. VIRAL VIDEO SCORE (video-first logic)
+// ─────────────────────────────
+//
+function calculateVideoScore(video) {
+  const views = video.views;
+
+  const ageHours =
+    (Date.now() - new Date(video.publishedAt).getTime()) / 36e5;
+
+  // freshness boost = early viral detection signal
+  const freshnessBoost = Math.max(0, 72 - ageHours);
+
+  // video dominance score (views + early traction)
+  return (views * 0.8) + (freshnessBoost * 40000);
+}
+
+//
+// ─────────────────────────────
+// 4. BUILD MUSIC VIDEO CHART
+// ─────────────────────────────
 //
 function buildChart(items) {
   return items
@@ -40,31 +67,73 @@ function buildChart(items) {
       channel: v.snippet.channelTitle,
       thumbnail: v.snippet.thumbnails?.medium?.url,
       views: Number(v.statistics.viewCount || 0),
-      genre: detectGenre(v.snippet.title),
       publishedAt: v.snippet.publishedAt
     }))
-    .sort((a, b) => b.views - a.views) // REAL ranking system
-    .slice(0, 10); // enforce Top 10
+    .map(v => ({
+      ...v,
+      score: calculateVideoScore(v)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
 }
 
 //
-// 4. DISCORD EMBED FORMAT (modern Billboard style)
+// ─────────────────────────────
+// 5. MOVEMENT + EARLY TREND SIGNALS
+// ─────────────────────────────
+//
+function applySignals(current, previous) {
+  const prevMap = new Map();
+
+  previous.forEach((v, i) => {
+    prevMap.set(v.title, { rank: i + 1 });
+  });
+
+  return current.map((v, i) => {
+    const rank = i + 1;
+    const prev = prevMap.get(v.title);
+
+    let signal = "🆕 NEW ENTRY";
+
+    if (prev) {
+      const diff = prev.rank - rank;
+
+      if (diff >= 2) signal = "📈 RISING";
+      else if (diff === 1) signal = "↗ Up";
+      else if (diff <= -2) signal = "📉 FALLING";
+      else signal = "➖ Stable";
+    }
+
+    // early breakout detection (video-specific logic)
+    if (rank <= 5 && !prev) {
+      signal = "⚡ EARLY VIDEO TREND";
+    }
+
+    return {
+      ...v,
+      rank,
+      signal
+    };
+  });
+}
+
+//
+// ─────────────────────────────
+// 6. APPLE-STYLE DISCORD OUTPUT
+// ─────────────────────────────
 //
 function buildEmbeds(chart) {
-  return chart.map((v, i) => ({
-    title: `#${i + 1} ${v.title}`,
-    url: null,
+  return chart.map(v => ({
+    title: `#${v.rank} ${v.title}`,
     image: { url: v.thumbnail },
     description:
-      `🎧 Genre: **${v.genre}**\n` +
+      `${v.signal}\n` +
+      `🎬 Music Video Chart\n` +
       `👤 ${v.channel}\n` +
       `👁️ ${v.views.toLocaleString()} views`
   }));
 }
 
-//
-// 5. SEND TO DISCORD
-//
 async function sendToDiscord(chart) {
   const embeds = buildEmbeds(chart);
 
@@ -72,23 +141,31 @@ async function sendToDiscord(chart) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      content: "🏆 **YouTube Music Chart (Top 10 US)**",
-      embeds: embeds
+      content: "🏆 YouTube Music Video Chart (US)",
+      embeds
     })
   });
 }
 
 //
-// 6. MAIN PIPELINE (runs in GitHub Actions)
+// ─────────────────────────────
+// 7. MAIN PIPELINE
+// ─────────────────────────────
 //
 async function main() {
-  const items = await fetchMusic();
+  const raw = await fetchMusicVideos();
 
-  const chart = buildChart(items);
+  const baseChart = buildChart(raw);
 
-  await sendToDiscord(chart);
+  const previous = loadPrevious();
 
-  console.log("✅ Chart posted successfully");
+  const finalChart = applySignals(baseChart, previous);
+
+  await sendToDiscord(finalChart);
+
+  saveCurrent(baseChart);
+
+  console.log("✅ Music Video Chart updated");
 }
 
 main();
