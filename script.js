@@ -1,20 +1,20 @@
-const fs = require("fs");
-
-function run() {
-  const videos = [
+async function getVideos() {
+  return [
     {
       title: "Top Music Video 1",
-      id: "demo1"
+      id: "video1"
     },
     {
       title: "Top Music Video 2",
-      id: "demo2"
+      id: "video2"
     },
     {
       title: "Top Music Video 3",
-      id: "demo3"
+      id: "video3"
     }
   ];
+}
+  const videos = await getVideos();
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
