@@ -3,19 +3,12 @@ const fs = require("fs");
 const API_KEY = process.env.YOUTUBE_API_KEY;
 const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 
-//
-// ─────────────────────────────
-// 0. SYSTEM CHECK (pre-flight)
-// ─────────────────────────────
-//
-function validateEnv() {
-  if (!API_KEY) throw new Error("Missing YOUTUBE_API_KEY");
-  if (!WEBHOOK) throw new Error("Missing DISCORD_WEBHOOK_URL");
-}
+const BRAND_NAME = "SWAYGFX•STUDIOS®";
+const BRAND_URL = "https://youtube.com/@swaygfx?si=kQVTyTVwhpkVJFQk";
 
 //
 // ─────────────────────────────
-// 1. FETCH YOUTUBE MUSIC VIDEOS
+// 1. FETCH
 // ─────────────────────────────
 //
 async function fetchMusicVideos() {
@@ -24,19 +17,14 @@ async function fetchMusicVideos() {
     `&chart=mostPopular&videoCategoryId=10&regionCode=US&maxResults=20&key=${API_KEY}`;
 
   const res = await fetch(url);
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`YouTube API failed: ${res.status} ${text}`);
-  }
-
   const data = await res.json();
+
   return data.items || [];
 }
 
 //
 // ─────────────────────────────
-// 2. MEMORY (chart history)
+// 2. MEMORY
 // ─────────────────────────────
 //
 function loadPrevious() {
@@ -54,7 +42,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. VIRAL SCORE (video intelligence)
+// 3. SCORE ENGINE
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -70,7 +58,7 @@ function calculateVideoScore(video) {
 
 //
 // ─────────────────────────────
-// 4. BUILD CHART (Top 10 engine)
+// 4. BUILD CHART
 // ─────────────────────────────
 //
 function buildChart(items) {
@@ -93,7 +81,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + SIGNALS (memory comparison)
+// 5. SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -119,7 +107,7 @@ function applySignals(current, previous) {
     }
 
     if (rank <= 5 && !prev) {
-      signal = "⚡ EARLY VIDEO TREND";
+      signal = "⚡ EARLY TREND";
     }
 
     return { ...v, rank, signal };
@@ -128,60 +116,68 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. DISCORD (HARDENED SEND WITH RETRIES)
+// 6. CHART EMBEDS
+// ─────────────────────────────
+//
+function buildChartEmbeds(chart) {
+  return chart.map(v => ({
+    title: `#${v.rank} ${v.title}`,
+    url: `https://www.youtube.com/watch?v=${v.videoId}`,
+    image: { url: v.thumbnail },
+    description:
+      `${v.signal}\n` +
+      `👤 ${v.channel}\n` +
+      `👁️ ${v.views.toLocaleString()} views`
+  }));
+}
+
+//
+// ─────────────────────────────
+// 7. BRAND EMBED (FOOTER CARD)
+// ─────────────────────────────
+//
+function buildBrandEmbed() {
+  return {
+    title: `Powered by ${BRAND_NAME}`,
+    url: BRAND_URL,
+    description: "—"
+  };
+}
+
+//
+// ─────────────────────────────
+// 8. DISCORD (SINGLE MESSAGE ONLY)
 // ─────────────────────────────
 //
 async function sendToDiscord(chart) {
-  const chartEmbeds = buildChartEmbeds(chart);
-  const brandEmbed = buildBrandEmbed();
+  const embeds = [
+    ...buildChartEmbeds(chart),
+    buildBrandEmbed() // appended as footer card
+  ];
 
-  await fetch(WEBHOOK, {
+  const res = await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: "🏆 Weekly YouTube Music Video Chart",
-      embeds: [
-        ...chartEmbeds,
-        brandEmbed // 👈 footer card INSIDE SAME MESSAGE
-      ]
+      embeds
     })
   });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Discord API error ${res.status}: ${text}`);
-    }
-
-    console.log("✅ Discord message sent");
-
-  } catch (err) {
-    console.log(`❌ Discord send failed (attempt ${attempt}):`, err.message);
-
-    // retry once (simple resilience)
-    if (attempt < 2) {
-      console.log("🔁 Retrying Discord send...");
-      await new Promise(r => setTimeout(r, 2000));
-      return sendToDiscord(chart, attempt + 1);
-    }
-
-    throw err;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord error: ${res.status} ${text}`);
   }
 }
 
 //
 // ─────────────────────────────
-// 7. MAIN PIPELINE (CONTROLLED EXECUTION)
+// 9. MAIN
 // ─────────────────────────────
 //
 async function main() {
   try {
-    console.log("🚀 Starting chart engine...");
-
-    validateEnv();
-
     const raw = await fetchMusicVideos();
-
-    console.log(`📡 Fetched ${raw.length} videos`);
 
     const baseChart = buildChart(raw);
 
@@ -193,10 +189,10 @@ async function main() {
 
     saveCurrent(baseChart);
 
-    console.log("✅ Chart cycle complete");
+    console.log("✅ Single-message weekly chart published");
 
   } catch (err) {
-    console.log("🔥 SYSTEM FAILURE:", err.message);
+    console.log("❌ ERROR:", err.message);
     process.exit(1);
   }
 }
