@@ -131,27 +131,21 @@ function applySignals(current, previous) {
 // 6. DISCORD (HARDENED SEND WITH RETRIES)
 // ─────────────────────────────
 //
-async function sendToDiscord(chart, attempt = 1) {
-  try {
-    const embeds = chart.map(v => ({
-      title: `#${v.rank} ${v.title}`,
-      url: `https://www.youtube.com/watch?v=${v.videoId}`,
-      image: { url: v.thumbnail },
-      description:
-        `${v.signal}\n` +
-        `🎬 Music Video Chart\n` +
-        `👤 ${v.channel}\n` +
-        `👁️ ${v.views.toLocaleString()} views`
-    }));
+async function sendToDiscord(chart) {
+  const chartEmbeds = buildChartEmbeds(chart);
+  const brandEmbed = buildBrandEmbed();
 
-    const res = await fetch(WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: "🏆 YouTube Music Video Chart (US)",
-        embeds
-      })
-    });
+  await fetch(WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: "🏆 Weekly YouTube Music Video Chart",
+      embeds: [
+        ...chartEmbeds,
+        brandEmbed // 👈 footer card INSIDE SAME MESSAGE
+      ]
+    })
+  });
 
     if (!res.ok) {
       const text = await res.text();
