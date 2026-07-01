@@ -93,7 +93,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + SIGNALS (memory comparison)
+// 5. MOVEMENT + SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -128,55 +128,65 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. DISCORD (HARDENED SEND WITH RETRIES)
+// 6. DISCORD EMBEDS (CHART + FOOTER)
 // ─────────────────────────────
 //
-async function sendToDiscord(chart, attempt = 1) {
-  try {
-    const embeds = chart.map(v => ({
-      title: `#${v.rank} ${v.title}`,
-      url: `https://www.youtube.com/watch?v=${v.videoId}`,
-      image: { url: v.thumbnail },
-      description:
-        `${v.signal}\n` +
-        `🎬 Music Video Chart\n` +
-        `👤 ${v.channel}\n` +
-        `👁️ ${v.views.toLocaleString()} views`
-    }));
-
-    const res = await fetch(WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: "🏆 YouTube Music Video Chart (US)",
-        embeds
-      })
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Discord API error ${res.status}: ${text}`);
-    }
-
-    console.log("✅ Discord message sent");
-
-  } catch (err) {
-    console.log(`❌ Discord send failed (attempt ${attempt}):`, err.message);
-
-    // retry once (simple resilience)
-    if (attempt < 2) {
-      console.log("🔁 Retrying Discord send...");
-      await new Promise(r => setTimeout(r, 2000));
-      return sendToDiscord(chart, attempt + 1);
-    }
-
-    throw err;
-  }
+function buildChartEmbeds(chart) {
+  return chart.map(v => ({
+    title: `#${v.rank} ${v.title}`,
+    url: `https://www.youtube.com/watch?v=${v.videoId}`,
+    image: { url: v.thumbnail },
+    description:
+      `${v.signal}\n` +
+      `👤 ${v.channel}\n` +
+      `👁️ ${v.views.toLocaleString()} views`
+  }));
 }
 
 //
 // ─────────────────────────────
-// 7. MAIN PIPELINE (CONTROLLED EXECUTION)
+// 7. BRAND FOOTER CARD (MINIMAL APPLE STYLE)
+// ─────────────────────────────
+//
+function buildBrandEmbed() {
+  return {
+    title: "Powered by SWAYGFX•STUDIOS®",
+    url: "https://youtube.com/@swaygfx?si=kQVTyTVwhpkVJFQk",
+    description: "—"
+  };
+}
+
+//
+// ─────────────────────────────
+// 8. DISCORD SEND (SINGLE MESSAGE ONLY)
+// ─────────────────────────────
+//
+async function sendToDiscord(chart) {
+  const embeds = [
+    ...buildChartEmbeds(chart),
+    buildBrandEmbed() // appended as final footer card
+  ];
+
+  const res = await fetch(WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: "🏆 Weekly YouTube Music Video Chart (US)",
+      embeds
+    })
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord error ${res.status}: ${text}`);
+  }
+
+  console.log("✅ Single-message chart sent successfully");
+}
+
+//
+// ─────────────────────────────
+// 9. MAIN PIPELINE
 // ─────────────────────────────
 //
 async function main() {
