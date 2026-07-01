@@ -24,7 +24,7 @@ async function fetchMusicVideos() {
 
 //
 // ─────────────────────────────
-// 2. MEMORY (previous chart snapshot)
+// 2. MEMORY
 // ─────────────────────────────
 //
 function loadPrevious() {
@@ -42,7 +42,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. VIDEO VIRAL SCORE
+// 3. SCORE SYSTEM
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -58,7 +58,7 @@ function calculateVideoScore(video) {
 
 //
 // ─────────────────────────────
-// 4. BUILD CHART (TOP 10 ENGINE)
+// 4. BUILD CHART
 // ─────────────────────────────
 //
 function buildChart(items) {
@@ -81,7 +81,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + SIGNALS
+// 5. MOVEMENT SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -95,19 +95,19 @@ function applySignals(current, previous) {
     const rank = i + 1;
     const prev = prevMap.get(v.videoId);
 
-    let signal = "🆕 NEW ENTRY";
+    let signal = "NEW";
 
     if (prev) {
       const diff = prev.rank - rank;
 
-      if (diff >= 2) signal = "📈 RISING";
-      else if (diff === 1) signal = "↗ UP";
-      else if (diff <= -2) signal = "📉 FALLING";
-      else signal = "➖ STABLE";
+      if (diff >= 2) signal = "RISING";
+      else if (diff === 1) signal = "UP";
+      else if (diff <= -2) signal = "FALLING";
+      else signal = "STABLE";
     }
 
     if (rank <= 5 && !prev) {
-      signal = "⚡ EARLY VIDEO TREND";
+      signal = "BREAKOUT";
     }
 
     return { ...v, rank, signal };
@@ -116,7 +116,7 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. MAIN DISCORD EMBEDS
+// 6. MAIN EMBEDS (CLEAN TOP 10)
 // ─────────────────────────────
 //
 function buildMainEmbeds(chart) {
@@ -126,29 +126,21 @@ function buildMainEmbeds(chart) {
     image: { url: v.thumbnail },
     description:
       `${v.signal}\n` +
-      `🎬 Weekly Music Video Chart\n` +
-      `👤 ${v.channel}\n` +
-      `👁️ ${v.views.toLocaleString()} views`
+      `${v.channel}\n` +
+      `${v.views.toLocaleString()} views`
   }));
 }
 
 //
 // ─────────────────────────────
-// 7. BRAND FOOTER CARD (SUBTLE SIGNATURE)
+// 7. BRAND FOOTER CARD (ONLY BRANDING)
 // ─────────────────────────────
 //
 function buildBrandEmbed() {
   return {
     title: `Powered by ${BRAND_NAME}`,
     url: BRAND_URL,
-    thumbnail: {
-      url: "https://yt3.googleusercontent.com/ytc/AIdxxxx_default_profile_image" 
-      // NOTE: replace this with your actual profile image URL if you want it cleaner
-    },
-    description:
-      "Music Video Intelligence System\n" +
-      "Designed & operated by SWAYGFX•STUDIOS®\n\n" +
-      "—"
+    description: "—"
   };
 }
 
@@ -158,20 +150,20 @@ function buildBrandEmbed() {
 // ─────────────────────────────
 //
 async function sendToDiscord(chart) {
-  const chartEmbeds = buildMainEmbeds(chart);
+  const mainEmbeds = buildMainEmbeds(chart);
   const brandEmbed = buildBrandEmbed();
 
-  // 1. Send chart first
+  // Message 1: Chart
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      content: "🏆 Weekly YouTube Music Video Chart (US)",
-      embeds: chartEmbeds
+      content: "🏆 Weekly YouTube Music Video Chart",
+      embeds: mainEmbeds
     })
   });
 
-  // 2. Send brand signature separately (important fix)
+  // Message 2: Brand (footer card only)
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -200,10 +192,10 @@ async function main() {
 
     saveCurrent(baseChart);
 
-    console.log("✅ Weekly chart + brand card published");
+    console.log("✅ Weekly chart published cleanly");
 
   } catch (err) {
-    console.log("❌ SYSTEM ERROR:", err.message);
+    console.log("❌ ERROR:", err.message);
     process.exit(1);
   }
 }
