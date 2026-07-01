@@ -15,6 +15,28 @@ function validateEnv() {
 
 //
 // ─────────────────────────────
+// 🌈 BRIGHT CINEMATIC PALETTE (shared visual system)
+// ─────────────────────────────
+//
+const CINEMATIC_PALETTE = [
+  0xff4d4d, // red
+  0xffa64d, // orange
+  0xffd24d, // gold
+  0x66e066, // green
+  0x4dd2ff, // sky blue
+  0x4d79ff, // royal blue
+  0xb84dff, // purple
+  0xff4dd2, // pink
+  0x00e6b8, // aqua
+  0xffffff  // clean highlight
+];
+
+function getPanelColor(rank) {
+  return CINEMATIC_PALETTE[(rank - 1) % CINEMATIC_PALETTE.length];
+}
+
+//
+// ─────────────────────────────
 // 1. FETCH YOUTUBE MUSIC VIDEOS
 // ─────────────────────────────
 //
@@ -93,7 +115,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT + SIGNALS (memory comparison)
+// 5. MOVEMENT + SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -128,7 +150,7 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. DISCORD (HARDENED SEND WITH RETRIES)
+// 6. DISCORD SEND (WITH PANEL COLORS)
 // ─────────────────────────────
 //
 async function sendToDiscord(chart, attempt = 1) {
@@ -136,7 +158,11 @@ async function sendToDiscord(chart, attempt = 1) {
     const embeds = chart.map(v => ({
       title: `#${v.rank} ${v.title}`,
       url: `https://www.youtube.com/watch?v=${v.videoId}`,
+
       image: { url: v.thumbnail },
+
+      color: getPanelColor(v.rank),
+
       description:
         `${v.signal}\n` +
         `🎬 Music Video Chart\n` +
@@ -163,9 +189,8 @@ async function sendToDiscord(chart, attempt = 1) {
   } catch (err) {
     console.log(`❌ Discord send failed (attempt ${attempt}):`, err.message);
 
-    // retry once (simple resilience)
     if (attempt < 2) {
-      console.log("🔁 Retrying Discord send...");
+      console.log("🔁 Retrying...");
       await new Promise(r => setTimeout(r, 2000));
       return sendToDiscord(chart, attempt + 1);
     }
@@ -176,7 +201,7 @@ async function sendToDiscord(chart, attempt = 1) {
 
 //
 // ─────────────────────────────
-// 7. MAIN PIPELINE (CONTROLLED EXECUTION)
+// 7. MAIN PIPELINE
 // ─────────────────────────────
 //
 async function main() {
