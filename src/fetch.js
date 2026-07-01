@@ -158,17 +158,25 @@ function buildBrandEmbed() {
 // ─────────────────────────────
 //
 async function sendToDiscord(chart) {
-  const embeds = [
-    ...buildMainEmbeds(chart),
-    buildBrandEmbed()
-  ];
+  const chartEmbeds = buildMainEmbeds(chart);
+  const brandEmbed = buildBrandEmbed();
 
+  // 1. Send chart first
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: "🏆 Weekly YouTube Music Video Chart (US)",
-      embeds
+      embeds: chartEmbeds
+    })
+  });
+
+  // 2. Send brand signature separately (important fix)
+  await fetch(WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      embeds: [brandEmbed]
     })
   });
 }
