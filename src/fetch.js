@@ -8,7 +8,7 @@ const BRAND_URL = "https://youtube.com/@swaygfx?si=kQVTyTVwhpkVJFQk";
 
 //
 // ─────────────────────────────
-// 1. FETCH YOUTUBE MUSIC VIDEOS
+// 1. FETCH
 // ─────────────────────────────
 //
 async function fetchMusicVideos() {
@@ -42,7 +42,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. VIRAL SCORE ENGINE
+// 3. SCORE ENGINE
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -81,7 +81,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. SIGNALS (movement / early trend)
+// 5. SIGNALS
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -116,10 +116,10 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. DISCORD EMBEDS (CLEAN)
+// 6. MAIN CHART EMBEDS
 // ─────────────────────────────
 //
-function buildMainEmbeds(chart) {
+function buildChartEmbeds(chart) {
   return chart.map(v => ({
     title: `#${v.rank} ${v.title}`,
     url: `https://www.youtube.com/watch?v=${v.videoId}`,
@@ -133,7 +133,7 @@ function buildMainEmbeds(chart) {
 
 //
 // ─────────────────────────────
-// 7. BRAND CARD (CLEAN APPLE-STYLE FOOTER)
+// 7. BRAND CARD (CLEAN + MINIMAL)
 // ─────────────────────────────
 //
 function buildBrandEmbed() {
@@ -146,36 +146,33 @@ function buildBrandEmbed() {
 
 //
 // ─────────────────────────────
-// 8. SEND TO DISCORD (FIXED HEADER)
+// 8. DISCORD SEND (FIXED STRUCTURE)
 // ─────────────────────────────
 //
 async function sendToDiscord(chart) {
-  const chartEmbeds = buildMainEmbeds(chart);
-  const brandEmbed = buildBrandEmbed();
-
-  // MAIN POST (NO BRANDING IN HEADER)
+  // 1. MAIN CHART MESSAGE (NO BRANDING HERE)
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: "🏆 Weekly YouTube Music Video Chart",
-      embeds: chartEmbeds
+      embeds: buildChartEmbeds(chart)
     })
   });
 
-  // FOOTER BRAND CARD (SEPARATE MESSAGE)
+  // 2. BRAND FOOTER CARD (SEPARATE MESSAGE)
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      embeds: [brandEmbed]
+      embeds: [buildBrandEmbed()]
     })
   });
 }
 
 //
 // ─────────────────────────────
-// 9. MAIN PIPELINE
+// 9. MAIN
 // ─────────────────────────────
 //
 async function main() {
@@ -192,10 +189,10 @@ async function main() {
 
     saveCurrent(baseChart);
 
-    console.log("✅ Clean weekly chart + footer branding published");
+    console.log("✅ Weekly chart posted (clean + branded footer)");
 
   } catch (err) {
-    console.log("❌ SYSTEM ERROR:", err.message);
+    console.log("❌ ERROR:", err.message);
     process.exit(1);
   }
 }
