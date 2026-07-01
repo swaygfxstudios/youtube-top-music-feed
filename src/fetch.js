@@ -147,34 +147,35 @@ function applySignals(current, previous) {
     return { ...v, rank, signal };
   });
 }
-
 //
 // ─────────────────────────────
-// 6. DISCORD SEND (WITH PANEL COLORS)
+// 6. DISCORD SEND (CLEAN PRESENTATION)
 // ─────────────────────────────
 //
 async function sendToDiscord(chart, attempt = 1) {
   try {
     const embeds = chart.map(v => ({
       title: `#${v.rank} ${v.title}`,
+
       url: `https://www.youtube.com/watch?v=${v.videoId}`,
 
-      image: { url: v.thumbnail },
+      image: {
+        url: v.thumbnail
+      },
 
       color: getPanelColor(v.rank),
 
       description:
-        `${v.signal}\n` +
-        `🎬 Music Video Chart\n` +
-        `👤 ${v.channel}\n` +
-        `👁️ ${v.views.toLocaleString()} views`
+        `👀 **${v.views.toLocaleString()} views**`
     }));
 
     const res = await fetch(WEBHOOK, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        content: "🏆 YouTube Music Video Chart (US)",
+        content: "🏆 **YouTube Music Video Chart (US)**",
         embeds
       })
     });
@@ -198,7 +199,6 @@ async function sendToDiscord(chart, attempt = 1) {
     throw err;
   }
 }
-
 //
 // ─────────────────────────────
 // 7. MAIN PIPELINE
