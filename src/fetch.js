@@ -175,7 +175,7 @@ async function sendToDiscord(chart, attempt = 1) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        content: "🏆 **YouTube Music Video Chart (US)**",
+        content: "📊 **YouTube Music Video Chart (US)**",
         embeds
       })
     });
