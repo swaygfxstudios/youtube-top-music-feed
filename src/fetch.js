@@ -42,7 +42,7 @@ function saveCurrent(chart) {
 
 //
 // ─────────────────────────────
-// 3. SCORE SYSTEM
+// 3. VIRAL SCORE ENGINE
 // ─────────────────────────────
 //
 function calculateVideoScore(video) {
@@ -81,7 +81,7 @@ function buildChart(items) {
 
 //
 // ─────────────────────────────
-// 5. MOVEMENT SIGNALS
+// 5. SIGNALS (movement / early trend)
 // ─────────────────────────────
 //
 function applySignals(current, previous) {
@@ -95,19 +95,19 @@ function applySignals(current, previous) {
     const rank = i + 1;
     const prev = prevMap.get(v.videoId);
 
-    let signal = "NEW";
+    let signal = "🆕 NEW ENTRY";
 
     if (prev) {
       const diff = prev.rank - rank;
 
-      if (diff >= 2) signal = "RISING";
-      else if (diff === 1) signal = "UP";
-      else if (diff <= -2) signal = "FALLING";
-      else signal = "STABLE";
+      if (diff >= 2) signal = "📈 RISING";
+      else if (diff === 1) signal = "↗ UP";
+      else if (diff <= -2) signal = "📉 FALLING";
+      else signal = "➖ STABLE";
     }
 
     if (rank <= 5 && !prev) {
-      signal = "BREAKOUT";
+      signal = "⚡ EARLY TREND";
     }
 
     return { ...v, rank, signal };
@@ -116,7 +116,7 @@ function applySignals(current, previous) {
 
 //
 // ─────────────────────────────
-// 6. MAIN EMBEDS (CLEAN TOP 10)
+// 6. DISCORD EMBEDS (CLEAN)
 // ─────────────────────────────
 //
 function buildMainEmbeds(chart) {
@@ -126,14 +126,14 @@ function buildMainEmbeds(chart) {
     image: { url: v.thumbnail },
     description:
       `${v.signal}\n` +
-      `${v.channel}\n` +
-      `${v.views.toLocaleString()} views`
+      `👤 ${v.channel}\n` +
+      `👁️ ${v.views.toLocaleString()} views`
   }));
 }
 
 //
 // ─────────────────────────────
-// 7. BRAND FOOTER CARD (ONLY BRANDING)
+// 7. BRAND CARD (CLEAN APPLE-STYLE FOOTER)
 // ─────────────────────────────
 //
 function buildBrandEmbed() {
@@ -146,24 +146,24 @@ function buildBrandEmbed() {
 
 //
 // ─────────────────────────────
-// 8. DISCORD SENDER
+// 8. SEND TO DISCORD (FIXED HEADER)
 // ─────────────────────────────
 //
 async function sendToDiscord(chart) {
-  const mainEmbeds = buildMainEmbeds(chart);
+  const chartEmbeds = buildMainEmbeds(chart);
   const brandEmbed = buildBrandEmbed();
 
-  // Message 1: Chart
+  // MAIN POST (NO BRANDING IN HEADER)
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: "🏆 Weekly YouTube Music Video Chart",
-      embeds: mainEmbeds
+      embeds: chartEmbeds
     })
   });
 
-  // Message 2: Brand (footer card only)
+  // FOOTER BRAND CARD (SEPARATE MESSAGE)
   await fetch(WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -192,10 +192,10 @@ async function main() {
 
     saveCurrent(baseChart);
 
-    console.log("✅ Weekly chart published cleanly");
+    console.log("✅ Clean weekly chart + footer branding published");
 
   } catch (err) {
-    console.log("❌ ERROR:", err.message);
+    console.log("❌ SYSTEM ERROR:", err.message);
     process.exit(1);
   }
 }
